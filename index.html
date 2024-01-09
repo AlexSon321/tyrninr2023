@@ -613,7 +613,7 @@ if(enableRocketMovement){
             });
 
            function handleKeydown(event) {
-                if (event.code === "Space" && gunMode === 1) {
+                if (event.key === "f" && gunMode === 1) {
                     fire();
                 }
                 if (event.code === "ArrowRight") {
