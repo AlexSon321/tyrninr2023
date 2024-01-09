@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Комплекс "Патріот"</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+            display: block;
+            margin: 20px auto;
+            background-color: rgb(175, 240, 240);
+        }
+        button, label, select {
+            margin: 10px;
+        }
+        .statistics {
+            float: right;
+            text-align: right;
+        }
+        .error {
+            color: rgb(202, 73, 36);
+        }
+
+        button{
+            border: none;
+            color: white;
+            padding: 10px 10px 10px 10px;
+            background-color:  rgb(202, 73, 36);
+            border-radius: 10px;
+        }
+        select{
+            background-color:  rgb(202, 73, 36);
+            border: none;
+            color: white;
+        }
+        option{
+            caret-color: rgb(202, 73, 36);
+        }
+    </style>
+</head>
+<body>
+    <canvas id="myCanvas" width="1440" height="720"></canvas>
+    <button id="startButton">Старт</button>
+    <button id="fireButton">Вогонь</button>
+    <button id="pauseButton">Пауза</button>
+    <button id="continueButton">Продовжити</button>
+    <button id="resetButton">Скидання</button>
+    <button id="visibleButton">Visible</button>
+    <label>Режим гармати: 
+        <select id="gunMode">
+            <option value="1">Режим 1 (Самостійний)</option>
+            <option value="2">Режим 2 (Автоматичний)</option>
+        </select>
+    </label>
+    <br>
+    <label>Тип гармати: 
+        <select id="gunType">
+            <option value="1">Гармата 1 (MIM-104 Patriot)</option>
+            <option value="2">Гармата 2 (FIM-92 Stinger)</option>
+            <option value="3">Гармата 3 (Aster 30 SAMP/T)</option>
+            <option value="4">Гармата 4 (NASAMS)</option>
+        </select>
+    </label>
+    <br>
+    <label>Швидкість відтворення: 
+        <input type="range" id="playbackSpeed" min="1" max="20" value="5" step="1">
+        <span id="speedDisplay">5</span>
+    </label>
+    <br>
+    <label>Швидкість ракети: 
+        <input type="range" id="rocketSpeed" min="1" max="20" value="2" step="1">
+        <span id="rocketSpeedDisplay">2</span>
+    </label>
+    <br>
+    <label>Швидкість снаряду: 
+        <input type="range" id="projectileSpeed" min="1" max="20" value="5" step="1">
+        <span id="projectileSpeedDisplay">5</span>
+    </label>
+    <br>
+    <label for="enableRocketMovement">Дозволити рух ракет:
+        <input type="checkbox" id="enableRocketMovement" checked>
+    </label>
+    <br>
+    <label>Довжина ракети (см): 
+        <input type="range" id="rocketLength" min="5" max="300" value="37.5" step="1">
+        <span id="rocketLengthDisplay">37.5</span>
+    </label>
+    <br>
+    <label>Товщина ракети (см): 
+        <input type="range" id="rocketWidth" min="10" max="50" value="7.5" step="1">
+        <span id="rocketWidthDisplay">7.5</span>
+    </label>
+    <br>
+    <label>Кут гармати (градуси): 
+        <input type="range" id="gunAngle" min="30" max="150" value="90" step="1">
+        <span id="gunAngleDisplay">90</span>
+    </label>
+    <br>
+    <label>Кількість ракет (1-10): 
+        <input type="number" id="rocketCount" min="1" max="10" value="1">
+    </label>
+    <br>
+    <label>Масса ракети (кг):
+        <input type="number" id="weightRocket" min="50" max="100" value="50" step="10">
+    </label>
+    <br>
+    <p id="rocketError" class="error" style="display:none;">Ракети збити не можливо</p>
+    
+    <div class="statistics">
+        <p>Лічильник залпів: <span id="salvoCount">0</span></p>
+        <p>Відсоток збитих ракет: <span id="hitPercentage">0%</span></p>
+        <p>Маса ракети: <span id="massIt">0кг</span></p>
+        <p>Коефіцієнт відношення витрачених снарядів до випущених ракет: <span id="efficiency">0</span></p>
+        <p id="rocketCoordinates">Координати ракети:</p>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            let canvas = document.getElementById("myCanvas");
+            let ctx = canvas.getContext("2d");
+            let threeCtx = ctx
+            let isDraw = true
+            let mass = parseInt(document.getElementById('weightRocket').value) / 100
+
+            let countAngle = 4
+            let explosions = []
+
+            let rockets = [];
+            let gun = {
+                x: 100,
+                y: 690,
+                angle: Math.PI / 2,
+                speed: 5,
+                type: 2 // Початковий тип гармати
+            };
+
+            let gunSec = {
+                x: 400,
+                y: 690,
+                angle: Math.PI / 2,
+                speed: 5,
+                type: 3 // Початковий тип гармати
+            };
+
+            let changeAngle = 0;
+            let projectiles = [];
+            let isPaused = true;
+            let gunMode = 1;
+
+            let salvoCount = 0;
+            let hitCount = 0;
+
+            let canFire = true;
+            let fireInterval;
+
+            // Оголосимо об'єкт gunColors для зберігання кольорів гармат для кожного типу
+            const gunColors = {
+                1: "#FF0000", // Гармата 1
+                2: "#00FF00", // Гармата 2
+                3: "#0000FF", // Гармата 3
+                4: "#FFA500"  // Гармата 4
+            };
+
+            // Оголосимо об'єкт gunShapes для зберігання форми гармати для кожного типу
+            const gunShapes = {
+                1: function(x, y, angle) { // Гармата 1
+                    ctx.fillStyle = "#888";
+                    ctx.fillRect(gun.x - 25, gun.y, 50, 10);
+                    ctx.beginPath();
+                    ctx.arc(gun.x - 20, gun.y + 10, 5, 0, 2 * Math.PI);
+                    ctx.arc(gun.x - 10, gun.y + 10, 5, 0, 2 * Math.PI);
+                    ctx.arc(gun.x + 20, gun.y + 10, 5, 0, 2 * Math.PI);
+                    ctx.fill();
+                    ctx.save();
+                    countAngle = 4
+                    ctx.translate(gun.x, gun.y);
+                    ctx.rotate(-gun.angle);
+                    ctx.fillStyle = gunColors[1];
+                    ctx.fillRect(0, -7.5, 50, 15);
+                    ctx.restore();
+                },
+                2: function(x, y, angle) { // Гармата 2
+                    ctx.fillStyle = "#888";
+                    ctx.fillRect(gun.x - 15, gun.y, 30, 20);
+                    ctx.beginPath();
+                    ctx.fill();
+                    ctx.save();
+                    ctx.translate(gun.x, gun.y);
+                    ctx.rotate(-gun.angle);
+                    ctx.fillStyle = gunColors[2];
+                    countAngle = 1
+                    ctx.fillRect(0, -15, 30, 15);
+                    ctx.restore();
+                },
+                3: function(x, y, angle) { // Гармата 3
+                    ctx.fillStyle = "#888";
+                    ctx.fillRect(gun.x - 25, gun.y, 50, 10);
+                    ctx.beginPath();
+                    ctx.arc(gun.x - 20, gun.y + 10, 5, 0, 2 * Math.PI);
+                    ctx.arc(gun.x - 10, gun.y + 10, 5, 0, 2 * Math.PI);
+                    ctx.arc(gun.x + 10, gun.y + 10, 5, 0, 2 * Math.PI);
+                    ctx.arc(gun.x + 20, gun.y + 10, 5, 0, 2 * Math.PI);
+                    ctx.fill();
+                    ctx.save();
+                    ctx.translate(gun.x, gun.y);
+                    ctx.rotate(-gun.angle);
+                    ctx.fillStyle = gunColors[3];
+                    countAngle = 8
+                    ctx.fillRect(0, -7.5, 50, 15);
+                    ctx.restore();
+                    ctx.restore();
+                },
+                4: function(x, y, angle) { // Гармата 4
+                    ctx.fillStyle = "#888";
+                    ctx.fillRect(gun.x - 25, gun.y, 50, 10);
+                    ctx.beginPath();
+                    ctx.fill();
+                    ctx.save();
+                    ctx.translate(gun.x, gun.y);
+                    countAngle = 6
+                    ctx.rotate(-gun.angle);
+                    ctx.fillStyle = gunColors[4];
+                    ctx.fillRect(0, -7.5, 50, 15);
+                    ctx.restore();
+                    ctx.restore();
+                }
+            };
+
+            // Функція для малювання сітки
+            function drawGrid() {
+                // const gridSize = 50; // Розмір клітинки сітки
+                // ctx.strokeStyle = "#DDD"; // Колір ліній сітки
+                // for (let x = 0; x < canvas.width; x += gridSize) {
+                //     ctx.beginPath();
+                //     ctx.moveTo(x, 0);
+                //     ctx.lineTo(x, canvas.height);
+                //     ctx.stroke();
+                // }
+                // for (let y = 0; y < canvas.height; y += gridSize) {
+                //     ctx.beginPath();
+                //     ctx.moveTo(0, y);
+                //     ctx.lineTo(canvas.width, y);
+                //     ctx.stroke();
+                // }
+            }
+
+            // Функція для малювання лінії горизонту
+            function drawHorizon() {
+                ctx.fillStyle = "#8B4513"; // Коричневий колір
+                ctx.fillRect(0, 700, canvas.width, 20); // Лінія горизонту
+            }
+
+			function drawthree() {
+                threeCtx.fillStyle = "#228B22"; // Темно-зелений колірctx.beginPath();       // Починаємо новий шлях
+				threeCtx.moveTo(700, 700);    // Переміщуємо перо до початкової точки
+				threeCtx.lineTo(725, 600);   // Малюємо лінію до другої точки
+				threeCtx.lineTo(750, 700);  // Малюємо лінію до третьої точки
+				threeCtx.closePath();    
+				threeCtx.fill(); 
+            }
+
+            function upSpeedRocket(){
+                rockets.forEach(function(e){
+                    if(e.speed < 20){
+                        e.speed += 2
+
+                        document.getElementById('rocketSpeedDisplay').textContent = e.speed;
+                        document.getElementById('rocketSpeed').value = e.speed
+                    }
+                })
+            }
+
+            function downSpeedRocket(){
+                rockets.forEach(function(e){
+                    if(e.speed > 2){
+                        e.speed -= 2
+                    
+                    document.getElementById('rocketSpeedDisplay').textContent = e.speed;
+                    document.getElementById('rocketSpeed').value = e.speed
+                    }
+                })
+            }
+
+            function clearHouse(){
+                ctx.clearRect(800, 500, 100, 200)
+            }
+
+			function drawhouse() {
+
+                ctx.fillStyle = "#B22222";
+                ctx.fillRect(800, 500, 100, 200);
+                
+            }
+
+            function generateRockets() {
+                rockets = [];
+                const rocketCount = parseInt(document.getElementById('rocketCount').value);
+                const canvasHeight = canvas.height;
+                const minY = 50;
+                const maxY = canvasHeight / 2;
+
+                for (let i = 0; i < rocketCount; i++) {
+                    let y = Math.random() * (maxY - minY) + minY;
+
+                    rockets.push({
+                        x: -parseFloat(document.getElementById('rocketLength').value) - i * 50,
+                        y: y,
+                        width: parseFloat(document.getElementById('rocketLength').value),
+                        height: parseFloat(document.getElementById('rocketWidth').value),
+                        speed: parseFloat(document.getElementById('rocketSpeed').value),
+                        visible: true
+                    });
+                }
+                document.getElementById('rocketCount').value = rockets.length;
+                checkRocketSpeed();
+            }
+
+            function checkRocketSpeed() {
+                const rocketSpeed = parseFloat(document.getElementById('rocketSpeed').value);
+                const projectileSpeed = parseFloat(document.getElementById('projectileSpeed').value);
+                const rocketError = document.getElementById("rocketError");
+                if (rocketSpeed >= projectileSpeed) {
+                    rocketError.style.display = "block";
+                } else {
+                    rocketError.style.display = "none";
+                }
+            }
+
+            function drawRockets() {
+                for (let rocket of rockets) {
+                    if (rocket.visible) {
+                        ctx.fillStyle = "#FF0000";
+                        ctx.fillRect(rocket.x, rocket.y, rocket.width, rocket.height);
+                    }
+                }
+            }
+
+            function drawGun() {
+                const gunType = parseInt(document.getElementById('gunType').value);
+            
+
+                // Виклик функції для малювання гармати залежно від типу гармати
+                gunShapes[gunType](gun.x, gun.y, gun.angle);
+                // gunShapes[3](gunSec.x, gunSec.y, gunSec.angle);
+            }
+
+            function drawProjectile(p) {
+                ctx.fillStyle = "#00FF00";
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 5, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+
+            function draw() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                drawHorizon(); // Додали малювання лінії горизонту
+                drawGrid(); // Малюємо сітку
+				drawthree();
+				drawhouse();
+                drawRockets();
+                for (let p of projectiles) {
+                    drawProjectile(p);
+                }
+                drawGun();
+
+            }
+
+            function moveRockets() {
+                const enableRocketMovement = document.getElementById('enableRocketMovement').checked;
+
+                for (let rocket of rockets) {
+                    if (rocket.visible) {
+                        rocket.x += rocket.speed;
+                       if(enableRocketMovement){
+                            rocket.y += mass
+                        }
+                        if (rocket.x > canvas.width) {
+                            rocket.visible = false;
+                        }
+                    }
+                }
+            }
+
+            function moveProjectile() {
+                const projectileSpeed = parseFloat(document.getElementById('projectileSpeed').value);
+                for (let p of projectiles) {
+                    p.x += projectileSpeed * Math.cos(p.angle);
+                    p.y += projectileSpeed * Math.sin(p.angle);
+                }
+                projectiles = projectiles.filter(p => p.x >= 0 && p.x <= canvas.width && p.y >= 0 && p.y <= canvas.height);
+            }
+
+            function moveGunAngle() {
+                if (changeAngle !== 0) {
+                    gun.angle += changeAngle;
+                    if (gun.angle > (150 * Math.PI) / 180) {
+                        gun.angle = (150 * Math.PI) / 180;
+                    }
+                    if (gun.angle < (30 * Math.PI) / 180) {
+                        gun.angle = (30 * Math.PI) / 180;
+                    }
+                }
+            }
+
+    function createExplosion(x, y) {
+
+        const explosion = {
+        x: x,
+        y: y,
+        radius: 20,
+        currentFrame: 0,
+        duration: 1000, // Продолжительность в кадрах (настройте по вашему усмотрению)
+    };
+
+    explosions.push(explosion);
+}
+
+
+    function drawExplosions() {
+    for (let i = 0; i < explosions.length; i++) {
+        const explosion = explosions[i];
+        ctx.fillStyle = "#FFA500";
+        ctx.beginPath();
+        ctx.arc(explosion.x, explosion.y, explosion.radius, 0, 2 * Math.PI);
+        ctx.fill();
+        explosion.currentFrame++;
+
+        if (explosion.currentFrame >= explosion.duration) {
+            explosions.splice(i, 1); // Удаляем взрыв, если он достиг продолжительности
+            i--; // Уменьшаем счетчик, чтобы не пропустить следующий взрыв
+        }
+    }
+}
+
+            function checkCollision() {
+                for (let rocket of rockets) {
+                    for (let p of projectiles) {
+                        if (rocket.visible && p.x >= rocket.x && p.x <= rocket.x + rocket.width && p.y >= rocket.y && p.y <= rocket.y + rocket.height) {
+                        
+                            createExplosion(rocket.x, rocket.y);
+                            drawExplosions()
+
+                            rocket.visible = false
+                            projectiles.splice(projectiles.indexOf(p), 1);
+                            hitCount++;
+                            updateStatistics(); // Оновлення "Відсоток збитих ракет" після влучання снаряду
+                        }
+                    }
+                }
+            }
+
+            function trackRocketPosition(event) {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = event.clientX - rect.left;
+                const mouseY = event.clientY - rect.top;
+
+                let trackedRocket = null;
+
+                for (let rocket of rockets) {
+                    if (rocket.visible && mouseX >= rocket.x && mouseX <= rocket.x + rocket.width && mouseY >= rocket.y && mouseY <= rocket.y + rocket.height) {
+                        trackedRocket = rocket;
+                        break;
+                    }
+                }
+
+                const rocketCoordinates = document.getElementById("rocketCoordinates");
+                if (trackedRocket) {
+                    const rocketX = trackedRocket.x.toFixed(2);
+                    const rocketY = trackedRocket.y.toFixed(2);
+                    rocketCoordinates.textContent = `Координати ракети: X = ${rocketX}, Y = ${rocketY}`;
+                } else {
+                    rocketCoordinates.textContent = "Координати ракети:";
+                }
+            }
+
+            function gameLoop() {
+                if (!isPaused) {
+                    moveRockets();
+                    moveProjectile();
+                    moveGunAngle();
+                    checkCollision();
+                    draw();
+                    checkRocketSpeed();
+
+                    if (gunMode === 2) {
+                    
+                        setTimeout(() => {
+                        autoFire();
+                        moveGunAngle()
+                    }, 400);
+                    }
+
+                    requestAnimationFrame(gameLoop);
+                }
+            }
+
+            function autoFire() {
+                if (canFire) {
+                    for (let i = 1; i < rockets.length; i++) {
+                        let randomRocket = Math.floor(Math.random() * rockets.length);
+
+                        let rocket = rockets[randomRocket];
+                    
+                    if (rocket.visible) {
+                        const dx = rocket.x - gun.x;
+                        const dy = rocket.y - gun.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        const time = distance / parseFloat(document.getElementById('projectileSpeed').value);
+                        const targetX = rocket.x + (rocket.speed * time);
+                        const targetY = rocket.y + (rocket.speed * time);
+                        const angle = Math.atan2(targetY - gun.y, targetX - gun.x);
+
+                        gun.angle = -angle;
+
+                        if (rocket.speed < parseFloat(document.getElementById('projectileSpeed').value)) {
+                            for (let i = 0; i < countAngle; i++) {
+                                let angleOffset = (-7.5 + (i * 2.5)) * (Math.PI / 180);
+                                projectiles.push({
+                                    x: gun.x,
+                                    y: gun.y,
+                                    angle: angle + angleOffset
+                                });
+                            }
+                            canFire = false;
+                            salvoCount++;
+                            updateStatistics();
+                            setTimeout(() => {
+                                canFire = true;
+                            }, 1000);
+                            break;
+                        }
+                    }
+                } 
+                }
+            }
+
+            function fire() {
+                if (canFire) {
+                    for (let i = 0; i < countAngle; i++) {
+                        let angleOffset = (-7.5 + (i * 2.5)) * (Math.PI / 180);
+                        projectiles.push({
+                            x: gun.x,
+                            y: gun.y,
+                            angle: -gun.angle + angleOffset
+                        });
+                    }
+                    canFire = false;
+                    salvoCount++;
+                    updateStatistics();
+                    setTimeout(() => {
+                        canFire = true;
+                    }, 1000);
+                }
+            }
+			
+
+            function updateStatistics() {
+                const totalRockets = rockets.length;
+                const massRocket = mass
+                const hitPercentage = ((hitCount / totalRockets) * 100).toFixed(2);
+                const efficiency = (hitCount / salvoCount / 6).toFixed(2);
+
+                document.getElementById('salvoCount').textContent = salvoCount;
+                document.getElementById('hitPercentage').textContent = `${hitPercentage}%`;
+                document.getElementById('massIt').textContent = massRocket.toString();
+                document.getElementById('efficiency').textContent = efficiency;
+            }
+
+            document.getElementById("fireButton").addEventListener("click", function() {
+                if (gunMode === 1) {
+                    fire();
+                }
+            });
+
+            document.getElementById("visibleButton").addEventListener("click", () => {
+                clearHouse()
+            })
+
+           function handleKeydown(event) {
+                if (event.code === "Space" && gunMode === 1) {
+                    fire();
+                }
+                if (event.code === "ArrowRight") {
+                    changeAngle = -0.03;
+                }
+                if (event.code === "ArrowLeft") {
+                    changeAngle = 0.03;
+                }
+            }
+
+            function handleKeyup(event) {
+                if (event.code === "ArrowRight" || event.code === "ArrowLeft") {
+                    changeAngle = 0;
+                }
+            }
+
+            document.addEventListener("keydown", handleKeydown);
+            document.addEventListener("keyup", handleKeyup);
+            document.addEventListener('keydown', function(event){
+                if(event.key == 'a'){
+                    gun.x -= 10
+                    gun.y += 0.4
+                } else if(event.key == 'd'){
+                    gun.x += 10
+                    gun.y -= 0.4
+                } else if(event.key == 's'){
+                    upSpeedRocket()
+                } else if(event.key == 'w'){
+                    downSpeedRocket()
+                }
+            });
+
+            document.getElementById("startButton").addEventListener("click", function() {
+                if (isPaused) {
+
+setTimeout(function() {
+  alert("Атака почалась!");
+  isPaused = false;
+                    generateRockets();
+                    gameLoop();
+}, 500);
+
+                    
+                }
+            });
+            document.getElementById("pauseButton").addEventListener("click", function() {
+                isPaused = true;
+            });
+            document.getElementById("continueButton").addEventListener("click", function() {
+                if (isPaused) {
+                    isPaused = false;
+                    gameLoop();
+                }
+            });
+            document.getElementById("resetButton").addEventListener("click", function() {
+                isPaused = true;
+                rockets = [];
+                projectiles = [];
+                salvoCount = 0;
+                hitCount = 0;
+                canFire = true;
+                updateStatistics();
+                draw();
+            });
+            document.getElementById("gunMode").addEventListener("change", function() {
+                gunMode = parseInt(document.getElementById('gunMode').value);
+            });
+            document.getElementById("gunType").addEventListener("change", function() {
+                gun.type = parseInt(document.getElementById('gunType').value);
+            });
+            document.getElementById("playbackSpeed").addEventListener("input", function() {
+                const speedValue = parseInt(document.getElementById('playbackSpeed').value);
+                document.getElementById('speedDisplay').textContent = speedValue;
+            });
+            document.getElementById("rocketSpeed").addEventListener("input", function() {
+                const speedValue = parseInt(document.getElementById('rocketSpeed').value);
+                document.getElementById('rocketSpeedDisplay').textContent = speedValue;
+                checkRocketSpeed();
+            });
+            document.getElementById("projectileSpeed").addEventListener("input", function() {
+                const speedValue = parseInt(document.getElementById('projectileSpeed').value);
+                document.getElementById('projectileSpeedDisplay').textContent = speedValue;
+                checkRocketSpeed();
+            });
+            document.getElementById("rocketLength").addEventListener("input", function() {
+                const lengthValue = parseInt(document.getElementById('rocketLength').value);
+                document.getElementById('rocketLengthDisplay').textContent = lengthValue;
+            });
+            document.getElementById("rocketWidth").addEventListener("input", function() {
+                const widthValue = parseInt(document.getElementById('rocketWidth').value);
+                document.getElementById('rocketWidthDisplay').textContent = widthValue;
+            });
+            document.getElementById("gunAngle").addEventListener("input", function() {
+                const angleValue = parseInt(document.getElementById('gunAngle').value);
+                document.getElementById('gunAngleDisplay').textContent = angleValue;
+            });
+
+            canvas.addEventListener("mousemove", trackRocketPosition);
+
+            draw();
+        });
+    </script>
+</body>
+</html>
