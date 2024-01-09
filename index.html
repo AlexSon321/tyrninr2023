@@ -37,6 +37,10 @@
         option{
             caret-color: rgb(202, 73, 36);
         }
+        a{
+            text-decoration: none;
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -46,7 +50,8 @@
     <button id="pauseButton">Пауза</button>
     <button id="continueButton">Продовжити</button>
     <button id="resetButton">Скидання</button>
-    <button id="visibleButton">Visible</button>
+    <button id="visibleButton">Visible</button> 
+    <button id="spec"><a href="https://docs.google.com/document/d/1GtOvJorv6WBHt8n1K9MwY_UDHxQXlV2S/edit">Документація</a></button> 
     <label>Режим гармати: 
         <select id="gunMode">
             <option value="1">Режим 1 (Самостійний)</option>
@@ -367,7 +372,7 @@
             }
 
             function moveRockets() {
-                const enableRocketMovement = document.getElementById('enableRocketMovement').checked;
+                    const enableRocketMovement = document.getElementById('enableRocketMovement').checked;
 
                 for (let rocket of rockets) {
                     if (rocket.visible) {
