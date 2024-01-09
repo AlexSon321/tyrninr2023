@@ -19,7 +19,23 @@
             text-align: right;
         }
         .error {
-            color: red;
+            color: rgb(202, 73, 36);
+        }
+
+        button{
+            border: none;
+            color: white;
+            padding: 10px 10px 10px 10px;
+            background-color:  rgb(202, 73, 36);
+            border-radius: 10px;
+        }
+        select{
+            background-color:  rgb(202, 73, 36);
+            border: none;
+            color: white;
+        }
+        option{
+            caret-color: rgb(202, 73, 36);
         }
     </style>
 </head>
@@ -116,7 +132,15 @@
                 y: 690,
                 angle: Math.PI / 2,
                 speed: 5,
-                type: 1 // Початковий тип гармати
+                type: 2 // Початковий тип гармати
+            };
+
+            let gunSec = {
+                x: 400,
+                y: 690,
+                angle: Math.PI / 2,
+                speed: 5,
+                type: 3 // Початковий тип гармати
             };
 
             let changeAngle = 0;
@@ -314,9 +338,11 @@
 
             function drawGun() {
                 const gunType = parseInt(document.getElementById('gunType').value);
+            
 
                 // Виклик функції для малювання гармати залежно від типу гармати
                 gunShapes[gunType](gun.x, gun.y, gun.angle);
+                // gunShapes[3](gunSec.x, gunSec.y, gunSec.angle);
             }
 
             function drawProjectile(p) {
@@ -337,6 +363,7 @@
                     drawProjectile(p);
                 }
                 drawGun();
+
             }
 
             function moveRockets() {
@@ -586,9 +613,15 @@
 
             document.getElementById("startButton").addEventListener("click", function() {
                 if (isPaused) {
-                    isPaused = false;
+
+setTimeout(function() {
+  alert("Атака почалась!");
+  isPaused = false;
                     generateRockets();
                     gameLoop();
+}, 500);
+
+                    
                 }
             });
             document.getElementById("pauseButton").addEventListener("click", function() {
