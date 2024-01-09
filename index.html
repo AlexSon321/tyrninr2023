@@ -50,7 +50,7 @@
     <button id="pauseButton">Пауза</button>
     <button id="continueButton">Продовжити</button>
     <button id="resetButton">Скидання</button>
-    <button id="visibleButton">Visible</button> 
+    <!-- <button id="visibleButton">Visible</button>  -->
     <button id="spec"><a href="https://docs.google.com/document/d/1GtOvJorv6WBHt8n1K9MwY_UDHxQXlV2S/edit">Документація</a></button> 
     <label>Режим гармати: 
         <select id="gunMode">
@@ -86,6 +86,10 @@
     <label for="enableRocketMovement">Дозволити рух ракет:
         <input type="checkbox" id="enableRocketMovement" checked>
     </label>
+
+    <label for="enableWind">Дозволити вітер:
+        <input type="checkbox" id="enableWind" checked>
+    </label>
     <br>
     <label>Довжина ракети (см): 
         <input type="range" id="rocketLength" min="5" max="300" value="37.5" step="1">
@@ -103,7 +107,7 @@
     </label>
     <br>
     <label>Кількість ракет (1-10): 
-        <input type="number" id="rocketCount" min="2" max="10" value="5">
+        <input type="number" id="rocketCount" min="2" max="10" value="3">
     </label>
     <br>
     <label>Масса ракети (кг):
@@ -285,6 +289,36 @@
                     document.getElementById('rocketSpeed').value = e.speed
                     }
                 })
+            }
+
+            function upWind(){
+                const enableRocketMovement = document.getElementById('enableWind').checked;
+
+if(enableRocketMovement){
+                rockets.forEach(function(e){
+                    if(e.speed < 20){
+                        e.speed += 0.5
+
+                        document.getElementById('rocketSpeedDisplay').textContent = e.speed;
+                        document.getElementById('rocketSpeed').value = e.speed
+                    }
+                })
+            }
+            }
+
+            function downWind(){
+                const enableRocketMovement = document.getElementById('enableWind').checked;
+
+                if(enableRocketMovement){
+                rockets.forEach(function(e){
+                    if(e.speed > 2){
+                        e.speed -= 0.5
+                    
+                    document.getElementById('rocketSpeedDisplay').textContent = e.speed;
+                    document.getElementById('rocketSpeed').value = e.speed
+                    }
+                })
+            }
             }
 
             function clearHouse(){
@@ -578,10 +612,6 @@
                 }
             });
 
-            document.getElementById("visibleButton").addEventListener("click", () => {
-                clearHouse()
-            })
-
            function handleKeydown(event) {
                 if (event.code === "Space" && gunMode === 1) {
                     fire();
@@ -613,6 +643,10 @@
                     upSpeedRocket()
                 } else if(event.key == 'w'){
                     downSpeedRocket()
+                } else if(event.key == "z"){
+                    upWind()
+                } else if(event.key == "x"){
+                    downWind()
                 }
             });
 
